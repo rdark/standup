@@ -11,6 +11,7 @@ Prints out in slack-compatible markdown so you can copy/paste into slack
 
 * [x] remove breaks from standup notes + update template
 * [ ] update links to match the actual previous rather than blind yesterday
+* [ ] Fix line-wrapping missing spaces in the output
 
 ## Workflow
 
