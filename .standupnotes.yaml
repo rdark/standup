@@ -1,0 +1,15 @@
+---
+journal:
+  dir: /Users/richard/work/fohnet/rdark/notes/journal
+  work_done_sections:
+    - "work completed"
+    - "worked on"
+  create:
+    cmd: 'zk headless-daily'
+standup:
+  dir: /Users/richard/work/fohnet/rdark/notes/standup
+  skip_text:
+    - "Standup Yesterday"
+    - "Daily Yesterday"
+  create:
+    cmd: 'zk headless-standup'
