@@ -43,7 +43,7 @@ func journalWorkDoneCmdFunc(cmd *cobra.Command, args []string) {
 	cobra.CheckErr(err)
 
 	parser := markdown.NewParser()
-	md, err := parser.ParseNoteContent(string(content), journalSkipText)
+	md, err := parser.ParseNoteContent(string(content), journalSkipText, markdown.NoteTypeJournal)
 	cobra.CheckErr(err)
 
 	for _, section := range md.Sections {
@@ -53,6 +53,15 @@ func journalWorkDoneCmdFunc(cmd *cobra.Command, args []string) {
 				fmt.Println(section.Content)
 			}
 		}
+	}
+	for _, link := range md.AdjacentLinks {
+		fmt.Printf("Source Note Type: %d\n", link.SourceNoteType)
+		fmt.Printf("Target Note Type: %d\n", link.TargetNoteType)
+		fmt.Printf("Link Title: %s\n", link.Title)
+		fmt.Printf("Link Target: %s\n", link.Target)
+		fmt.Printf("Link Start: %d\n", link.LinkStart)
+		fmt.Printf("Link End: %d\n", link.LinkEnd)
+		fmt.Println(md.Body[link.LinkStart:link.LinkEnd])
 	}
 }
 
@@ -82,7 +91,7 @@ func standupWorkDoneCmdFunc(cmd *cobra.Command, args []string) {
 	cobra.CheckErr(err)
 
 	parser := markdown.NewParser()
-	md, err := parser.ParseNoteContent(string(content), standupSkipText)
+	md, err := parser.ParseNoteContent(string(content), standupSkipText, markdown.NoteTypeStandup)
 	cobra.CheckErr(err)
 
 	for _, section := range md.Sections {

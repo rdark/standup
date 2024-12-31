@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"net/url"
 	"regexp"
-	"strings"
 	"slices"
+	"strings"
 
 	"github.com/mvdan/xurls"
 	"github.com/yuin/goldmark"
@@ -40,7 +40,7 @@ func NewParser() *Parser {
 	}
 }
 
-func (p *Parser) ParseNoteContent(content string, skipText []string) (*NoteContent, error) {
+func (p *Parser) ParseNoteContent(content string, skipText []string, noteType NoteType) (*NoteContent, error) {
 	bytes := []byte(content)
 
 	bodyStart := findBodyStartAfterFrontMatter(bytes)
@@ -62,13 +62,23 @@ func (p *Parser) ParseNoteContent(content string, skipText []string) (*NoteConte
 		return nil, err
 	}
 
+	adjacentLinks, err := parseAdjacentLinks(root, bytes, noteType)
+	if err != nil {
+		return nil, err
+	}
+
 	return &NoteContent{
-		Body:     body,
-		Sections: sections,
+		Body:          body,
+		Sections:      sections,
+		AdjacentLinks: adjacentLinks,
 	}, nil
 }
 
 var frontmatterRegex = regexp.MustCompile(`(?ms)^\s*-+\s*$.*?^\s*-+\s*$`)
+var fileDateRegex = regexp.MustCompile(`^\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])(?:\.md)?$`)
+
+var relativeStandupRegex = regexp.MustCompile(`^\.\.\/standup\/\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])(?:\.md)?$`)
+var relativeJournalRegex = regexp.MustCompile(`^\.\.\/journal\/\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])(?:\.md)?$`)
 
 func findBodyStartAfterFrontMatter(source []byte) int {
 	index := frontmatterRegex.FindIndex(source)
@@ -80,9 +90,65 @@ func findBodyStartAfterFrontMatter(source []byte) int {
 }
 
 // parse
-func parseAdjacentLinks(root ast.Node, source []byte) ([]AdjacentLink, error) {
+func parseAdjacentLinks(root ast.Node, source []byte, sourceNoteType NoteType) ([]AdjacentLink, error) {
+	adjacentLinks := make([]AdjacentLink, 0)
 
-	return nil, nil
+	err := ast.Walk(root, func(n ast.Node, entering bool) (ast.WalkStatus, error) {
+		if entering {
+			switch n.Kind() {
+
+			case ast.KindLink:
+				link := n.(*ast.Link)
+				if !isURL(string(link.Destination)) {
+					var targetNoteType NoteType
+
+					// if the target matches YYYY-DD-MM and optionally .md extension then
+					// its the same kind
+					if fileDateRegex.Match(link.Destination) {
+						targetNoteType = sourceNoteType
+						// match oddly linked of same type
+					} else if sourceNoteType == NoteTypeJournal && relativeJournalRegex.Match(link.Destination) {
+						targetNoteType = sourceNoteType
+					} else if sourceNoteType == NoteTypeJournal && relativeStandupRegex.Match(link.Destination) {
+						targetNoteType = NoteTypeStandup
+						// match oddly linked of same type
+					} else if sourceNoteType == NoteTypeStandup && relativeStandupRegex.Match(link.Destination) {
+						targetNoteType = sourceNoteType
+					} else if sourceNoteType == NoteTypeStandup && relativeJournalRegex.Match(link.Destination) {
+						targetNoteType = NoteTypeJournal
+					}
+
+					for child := link.FirstChild(); child != nil; child = child.NextSibling() {
+
+						if text := child.(*ast.Text); text != nil {
+							adjacentLink := AdjacentLink{
+								SourceNoteType:   sourceNoteType,
+								TargetNoteType:   targetNoteType,
+								Title:            string(text.Segment.Value(source)),
+								AdjacentLinkType: AdjacentLinkTypeCurrent, // TODO
+								Target:           string(link.Destination),
+							}
+
+							if lines := link.Parent().Lines(); lines != nil && lines.Len() > 0 {
+								adjacentLink.LinkStart = lines.At(0).Start
+								adjacentLink.LinkEnd = lines.At(0).Stop
+							}
+
+							adjacentLinks = append(adjacentLinks, adjacentLink)
+						}
+					}
+				}
+			}
+		}
+
+		return ast.WalkContinue, nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return adjacentLinks, nil
 }
 
 // parseSections extracts each section from the body delimited by a heading
@@ -183,12 +249,6 @@ func parseSections(root ast.Node, source []byte, skipText []string) ([]Section, 
 						}
 						appendToSnippet(currentSection, "]("+strings.TrimSpace(string(link.Destination))+")", false)
 						skipNext = true
-					} else {
-						for child := link.FirstChild(); child != nil; child = child.NextSibling() {
-							if text := child.(*ast.Text); text != nil {
-								fmt.Printf("Skipping non-URL link: %s - %s\n", link.Destination, string(text.Segment.Value(source)))
-							}
-						}
 					}
 				}
 
@@ -303,14 +363,13 @@ type Section struct {
 
 type AdjacentLinkType int
 
-
 const (
 	// represents a previous day
 	AdjacentLinkTypePrevious AdjacentLinkType = iota
 	// represents a future day
-	AdejacentLinkTypeNext
+	AdjacentLinkTypeNext
 	// reprecents the current day
-	AdejacentLinkTypeCurrent
+	AdjacentLinkTypeCurrent
 )
 
 // AdjacentLink represents a link to an adjacent note
@@ -320,8 +379,10 @@ type AdjacentLink struct {
 	// Type of the note where the link points to
 	TargetNoteType NoteType
 	// The title of the link, matched from config; used to determine the type
-	Title string
+	Title            string
 	AdjacentLinkType AdjacentLinkType
+	// The target of the link
+	Target string
 	// Start byte offset of the link as defined in the body
 	LinkStart int
 	// End byte offset of the link as defined in the body

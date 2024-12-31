@@ -14,8 +14,8 @@ var (
 	standupDir              string
 	journalWorkDoneSections []string
 	standupWorkDoneSection  string
-	standupSkipText				 []string
-	journalSkipText				 []string
+	standupSkipText         []string
+	journalSkipText         []string
 )
 
 // rootCmd represents the base command when called without any subcommands

@@ -12,6 +12,14 @@ Prints out in slack-compatible markdown so you can copy/paste into slack
 * [x] remove breaks from standup notes + update template
 * [ ] update links to match the actual previous rather than blind yesterday
 * [ ] Fix line-wrapping missing spaces in the output
+* [ ] Allow for top level journal/standup dirs to be variably named
+
+## Conventions
+
+* Journal/daily notes are named in `YYYY-DD-MM.md` format
+* Standup notes are named in `YYYY-DD-MM.md` format
+* Standup/Journal notes are stored in sibling directories (e.g `notes/standup` and `notes/journal`)
+* Standup and journal top level directories are hardcoded to be named `standup` and `journal` respectively
 
 ## Workflow
 

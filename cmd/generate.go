@@ -74,4 +74,3 @@ func generateJournalCmdFunc(cmd *cobra.Command, args []string) {
 
 	fmt.Println(journalNote)
 }
-
