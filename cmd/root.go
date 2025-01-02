@@ -16,6 +16,8 @@ var (
 	standupWorkDoneSection  string
 	standupSkipText         []string
 	journalSkipText         []string
+	journalLinkPreviousTitles []string
+	journalLinkNextTitles []string
 )
 
 // rootCmd represents the base command when called without any subcommands
@@ -43,13 +45,27 @@ var rootCmd = &cobra.Command{
 		if standupWorkDoneSection == "" {
 			standupWorkDoneSection = viper.GetString("standup.work_done_section")
 		}
-		if len(standupSkipText) == 0 {
-			standupSkipText = viper.GetStringSlice("standup.skip_text")
-		}
 
 		if len(journalSkipText) == 0 {
 			journalSkipText = viper.GetStringSlice("journal.skip_text")
 		}
+		if len(standupSkipText) == 0 {
+			standupSkipText = viper.GetStringSlice("standup.skip_text")
+		}
+
+		if len(journalLinkPreviousTitles) == 0 {
+			journalLinkPreviousTitles = viper.GetStringSlice("journal.link_previous_titles")
+			if len(journalLinkPreviousTitles) == 0 {
+				journalLinkPreviousTitles = []string{"Yesterday", "Previous"}
+			}
+		}
+		if len(journalLinkNextTitles) == 0 {
+			journalLinkNextTitles = viper.GetStringSlice("journal.link_next_titles")
+			if len(journalLinkNextTitles) == 0 {
+				journalLinkNextTitles = []string{"Tomorrow", "Next"}
+			}
+		}
+
 	},
 }
 
@@ -75,6 +91,9 @@ func init() {
 
 	rootCmd.PersistentFlags().StringSliceVar(&standupSkipText, "standup-skip-text", []string{}, "Text lines to skip in standup notes")
 	rootCmd.PersistentFlags().StringSliceVar(&journalSkipText, "journal-skip-text", []string{}, "Text lines to skip in journal notes")
+
+	rootCmd.PersistentFlags().StringSliceVar(&standupSkipText, "journal-link-prevous-titles", []string{}, "A list of link titles to match within journal notes that should be references to the previous journal")
+	rootCmd.PersistentFlags().StringSliceVar(&journalSkipText, "journal-link-next-titles", []string{}, "A list of link titles to match within journal notes that should be references to the next journal")
 
 }
 

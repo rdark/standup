@@ -102,8 +102,8 @@ func parseAdjacentLinks(root ast.Node, source []byte, sourceNoteType NoteType) (
 				if !isURL(string(link.Destination)) {
 					var targetNoteType NoteType
 
-					// if the target matches YYYY-DD-MM and optionally .md extension then
-					// its the same kind
+					// work out the target note type and skip if it isn't one in scope for an AdjacentLink
+					// TODO: make this less ugly
 					if fileDateRegex.Match(link.Destination) {
 						targetNoteType = sourceNoteType
 						// match oddly linked of same type
@@ -116,6 +116,8 @@ func parseAdjacentLinks(root ast.Node, source []byte, sourceNoteType NoteType) (
 						targetNoteType = sourceNoteType
 					} else if sourceNoteType == NoteTypeStandup && relativeJournalRegex.Match(link.Destination) {
 						targetNoteType = NoteTypeJournal
+					} else {
+						return ast.WalkContinue, nil
 					}
 
 					for child := link.FirstChild(); child != nil; child = child.NextSibling() {
@@ -125,13 +127,14 @@ func parseAdjacentLinks(root ast.Node, source []byte, sourceNoteType NoteType) (
 								SourceNoteType:   sourceNoteType,
 								TargetNoteType:   targetNoteType,
 								Title:            string(text.Segment.Value(source)),
-								AdjacentLinkType: AdjacentLinkTypeCurrent, // TODO
 								Target:           string(link.Destination),
 							}
 
 							if lines := link.Parent().Lines(); lines != nil && lines.Len() > 0 {
 								adjacentLink.LinkStart = lines.At(0).Start
 								adjacentLink.LinkEnd = lines.At(0).Stop
+							} else {
+								return ast.WalkContinue, nil
 							}
 
 							adjacentLinks = append(adjacentLinks, adjacentLink)
@@ -349,6 +352,17 @@ const (
 	NoteTypeStandup
 )
 
+func (t NoteType) String() string {
+    switch t {
+    case NoteTypeJournal:
+        return "NoteTypeJournal"
+    case NoteTypeStandup:
+        return "NoteTypeStandup"
+    default:
+        return fmt.Sprintf("%d", int(t))
+    }
+}
+
 // Section represents a portion of the overall document delimited by a heading
 type Section struct {
 	// Label of the link.
@@ -361,17 +375,6 @@ type Section struct {
 	ContentEnd int
 }
 
-type AdjacentLinkType int
-
-const (
-	// represents a previous day
-	AdjacentLinkTypePrevious AdjacentLinkType = iota
-	// represents a future day
-	AdjacentLinkTypeNext
-	// reprecents the current day
-	AdjacentLinkTypeCurrent
-)
-
 // AdjacentLink represents a link to an adjacent note
 type AdjacentLink struct {
 	// Type of the note where the link is defined
@@ -380,7 +383,6 @@ type AdjacentLink struct {
 	TargetNoteType NoteType
 	// The title of the link, matched from config; used to determine the type
 	Title            string
-	AdjacentLinkType AdjacentLinkType
 	// The target of the link
 	Target string
 	// Start byte offset of the link as defined in the body
