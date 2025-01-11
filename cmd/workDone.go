@@ -46,6 +46,11 @@ func journalWorkDoneCmdFunc(cmd *cobra.Command, args []string) {
 	md, err := parser.ParseNoteContent(string(content), journalSkipText, markdown.NoteTypeJournal)
 	cobra.CheckErr(err)
 
+	fmt.Println(md.FrontMatter.Start)
+	fmt.Println(md.FrontMatter.End)
+	// fmt.Println(md.FrontMatter.Meta)
+
+
 	for _, section := range md.Sections {
 		for _, cfgSection := range journalWorkDoneSections {
 			if strings.EqualFold(section.Title, cfgSection) {

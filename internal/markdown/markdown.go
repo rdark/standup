@@ -1,6 +1,7 @@
 package markdown
 
 import (
+	"bytes"
 	"fmt"
 	"net/url"
 	"regexp"
@@ -9,7 +10,7 @@ import (
 
 	"github.com/mvdan/xurls"
 	"github.com/yuin/goldmark"
-	meta "github.com/yuin/goldmark-meta"
+	"go.abhg.dev/goldmark/frontmatter"
 	"github.com/yuin/goldmark/ast"
 	"github.com/yuin/goldmark/extension"
 	"github.com/yuin/goldmark/parser"
@@ -25,7 +26,7 @@ func NewParser() *Parser {
 	return &Parser{
 		md: goldmark.New(
 			goldmark.WithExtensions(
-				meta.Meta,
+				&frontmatter.Extender{},
 				extension.NewLinkify(
 					extension.WithLinkifyAllowedProtocols([][]byte{
 						[]byte("http:"),
@@ -41,28 +42,41 @@ func NewParser() *Parser {
 }
 
 func (p *Parser) ParseNoteContent(content string, skipText []string, noteType NoteType) (*NoteContent, error) {
-	bytes := []byte(content)
-
-	bodyStart := findBodyStartAfterFrontMatter(bytes)
-
-	body := strings.TrimSpace(
-		string(bytes[bodyStart:]),
-	)
-
-	bytes = []byte(body)
+	contentBytes := []byte(content)
 
 	context := parser.NewContext()
-	root := p.md.Parser().Parse(
-		text.NewReader(bytes),
-		parser.WithContext(context),
-	)
+	b := bytes.Buffer{}
 
-	sections, err := parseSections(root, bytes, skipText)
+	err := p.md.Convert(contentBytes, &b, parser.WithContext(context))
 	if err != nil {
 		return nil, err
 	}
 
-	adjacentLinks, err := parseAdjacentLinks(root, bytes, noteType)
+	// TODO - move to a method on Parser as split responsibility
+	frontmatter, err := parseFrontmatter(context, contentBytes)
+	if err != nil {
+		return nil, err
+	}
+
+	bodyStart := findBodyStartAfterFrontMatter(contentBytes)
+
+	body := strings.TrimSpace(
+		string(contentBytes[bodyStart:]),
+	)
+
+	contentBytes = []byte(body)
+
+	root := p.md.Parser().Parse(
+		text.NewReader(contentBytes),
+		parser.WithContext(context),
+	)
+
+	sections, err := parseSections(root, contentBytes, skipText)
+	if err != nil {
+		return nil, err
+	}
+
+	adjacentLinks, err := parseAdjacentLinks(root, contentBytes, noteType)
 	if err != nil {
 		return nil, err
 	}
@@ -71,6 +85,8 @@ func (p *Parser) ParseNoteContent(content string, skipText []string, noteType No
 		Body:          body,
 		Sections:      sections,
 		AdjacentLinks: adjacentLinks,
+		NoteType:      noteType,
+		FrontMatter:   frontmatter,
 	}, nil
 }
 
@@ -399,4 +415,42 @@ type NoteContent struct {
 	Sections []Section
 	// A list of adjacent links
 	AdjacentLinks []AdjacentLink
+	NoteType NoteType
+	FrontMatter Frontmatter
 }
+
+// Frontmatter contains metadata parsed from a YAML Frontmatter.
+type Frontmatter struct {
+	Meta FrontMatterMeta
+	Start  int
+	End    int
+}
+
+type FrontMatterMeta struct {
+	Title string `yaml:"title"`
+	Tags	[]string `yaml:"tags"`
+	Date	string `yaml:"date"`
+}
+
+func parseFrontmatter(context parser.Context, source []byte) (Frontmatter, error) {
+	var front Frontmatter
+	var meta FrontMatterMeta
+
+	index := frontmatterRegex.FindIndex(source)
+	if index == nil {
+		return front, nil
+	}
+
+	front.Start = index[0]
+	front.End = index[1]
+
+	d := frontmatter.Get(context)
+	if err := d.Decode(&meta); err != nil {
+		return front, err
+	}
+
+	front.Meta = meta
+
+	return front, nil
+}
+
