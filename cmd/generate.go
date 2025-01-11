@@ -101,13 +101,7 @@ func generateJournalCmdFunc(cmd *cobra.Command, args []string) {
 	}
 
 	if len(fixableLinks) > 0 {
-		fmt.Println("Fixing links")
-		for _, link := range fixableLinks {
-			fmt.Printf("Fixing link: %s\n", link.Title)
-			content = slices.Replace(content, link.Target, previousJournalName)
-		}
-		err = os.WriteFile(journalPath, content, 0644)
-		cobra.CheckErr(err)
+		fmt.Printf("Found %d links to fix\n", len(fixableLinks))
 	}
 
 }

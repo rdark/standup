@@ -3,6 +3,7 @@ package util
 import (
 	"os"
 	"regexp"
+	"path/filepath"
 	"time"
 )
 
@@ -43,3 +44,19 @@ func GetMostRecentMdFileName(dirPath string, endTime time.Time) (string, error) 
 
 	return mostRecentFile, nil
 }
+
+// GetExactMdFileName returns the markdown (.md) extension file matching the exact date and errors if not found
+func GetExactMdFileName(dirPath string, date time.Time) (string, error) {
+    filename := date.Format("2006-01-02") + ".md"
+    fullPath := filepath.Join(dirPath, filename)
+    
+    if _, err := os.Stat(fullPath); err != nil {
+        if os.IsNotExist(err) {
+            return "", os.ErrNotExist
+        }
+        return "", err
+    }
+    
+    return filename, nil
+}
+
