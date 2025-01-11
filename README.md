@@ -10,6 +10,7 @@ Prints out in slack-compatible markdown so you can copy/paste into slack
 # TODO
 
 * [ ] update links to match the actual previous rather than blind yesterday
+* [ ] fix standup notes to have proper frontmatter
 * [ ] Fix line-wrapping missing spaces in the output
 * [ ] Allow for top level journal/standup dirs to be variably named
 
